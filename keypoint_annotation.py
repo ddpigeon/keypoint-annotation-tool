@@ -142,7 +142,7 @@ class KeypointEditor:
         image = cv2.imread(image_path1)
         image = cv2.resize(image, (256, 256), interpolation=cv2.INTER_AREA)
         results = model(image)
-        print(results[0].keypoints)
+        #print(results[0].keypoints)
         #print(type(results))
         
         # if results and results[0].keypoints is not None:
