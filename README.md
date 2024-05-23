@@ -1,5 +1,5 @@
 # keypoint annotation tool
-First Run framestool.py, select the video file to extract frames from and target_folder where we need to store the frames
+First run framestool.py, select the video file to extract frames from and target_folder where we need to store the frames
 
 Then run keypoint_annotation.py, change the directory in which frames are stored.
 
