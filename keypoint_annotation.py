@@ -1,7 +1,7 @@
 import os
 import cv2
 import tkinter as tk
-from tkinter import Canvas, Button, Label, Toplevel
+from tkinter import Canvas, Button, Label, Toplevel, Frame
 import math
 from ultralytics import YOLO
 
@@ -119,10 +119,14 @@ class KeypointEditor:
         self.selected_bbox = None
 
 
+        self.keypoint_count = int(model_type)
         self.initial_points = []
         self.final_points = []  # Convert to lists
+        self.keypoint_conf = [float(1)] * self.keypoint_count
+        self.current_conf = float(1)
         self.selected_point = None
-        self.keypoint_count = int(model_type)
+
+
         self.current_image_index = 0
         self.labels_folder = ""
         self.save_path = ""
@@ -151,6 +155,8 @@ class KeypointEditor:
 
         self.save_button = Button(root, text="Save", command=self.save_coordinates)
         self.save_button.pack()
+        self.toggle_conf_button = Button(root, text="Toggle confidence", command=self.toggle_confidence)
+        self.toggle_conf_button.pack()
         self.next_button = Button(root, text="Next", command=self.next_image)
         self.prev_button = Button(root, text="Previous", command=self.prev_image)
         self.delete_button = Button(root, text="Delete", command=self.delete_current_image)
@@ -170,8 +176,6 @@ class KeypointEditor:
         image = cv2.imread(image_path1)
         image = cv2.resize(image, (256, 256), interpolation=cv2.INTER_AREA)
         results = model(image)
-        #print(results[0].keypoints)
-        #print(type(results))
         
         # if results and results[0].keypoints is not None:
         if self.is_initial: 
@@ -183,10 +187,8 @@ class KeypointEditor:
 
             initial_points = self.initial_points[0]
             self.final_points = [list(point) for point in initial_points]
-            #print(self.final_points)
             if self.keypoint_count == 27:
                 self.final_points.append([float(self.image_size/2), float(self.image_size/2)])
-                #print(self.final_points)
 
             self.is_initial = False
 
@@ -207,8 +209,11 @@ class KeypointEditor:
         for i, (x, y) in enumerate(self.final_points):
             x_scaled, y_scaled = x * self.scale_factor, y * self.scale_factor  # Scale up the points
             color = colors[i % len(colors)]
+            outline_color = "#%02x%02x%02x" % color
+            if self.keypoint_conf[i] < 0.5:
+                outline_color = "black"
             self.canvas.create_oval(x_scaled - 5, y_scaled - 5, x_scaled + 5, y_scaled + 5,
-                                    fill="#%02x%02x%02x" % color, outline="#%02x%02x%02x" % color)
+                                    fill="#%02x%02x%02x" % color, outline=outline_color, width=2)
             
 
     def draw_bbox(self):
@@ -232,7 +237,7 @@ class KeypointEditor:
             x2, y2 = self.final_points[j]
             x1_scaled, y1_scaled = x1 * self.scale_factor, y1 * self.scale_factor
             x2_scaled, y2_scaled = x2 * self.scale_factor, y2 * self.scale_factor
-            self.canvas.create_line(x1_scaled, y1_scaled, x2_scaled, y2_scaled, fill="white")
+            self.canvas.create_line(x1_scaled, y1_scaled, x2_scaled, y2_scaled, fill="white", width=3)
 
     def select_point(self, event):
         self.selected_point = None
@@ -260,8 +265,8 @@ class KeypointEditor:
             self.selected_bbox = None
             x, y = event.x // self.scale_factor, event.y // self.scale_factor  # Scale down the mouse move coordinates
             self.final_points[self.selected_point] = [int(x), int(y)]  # Convert to integers and update as list
+            self.keypoint_conf[self.selected_point] = self.current_conf
             self.redraw_keypoints()
-            self.redraw_connections()
 
         if self.selected_bbox is not None:
             self.selected_point = None
@@ -274,9 +279,9 @@ class KeypointEditor:
     def redraw_keypoints(self):
         self.canvas.delete("all")
         self.load_image()
+        self.redraw_connections()
         self.draw_keypoints()
         self.draw_bbox()
-        self.redraw_connections()
 
     def redraw_connections(self):
         self.canvas.delete("connections")
@@ -287,11 +292,13 @@ class KeypointEditor:
         # Ensure all points in final_points are integers
         self.final_points = [[int(px), int(py)] for px, py in self.final_points]
 
-        # Normalize the points to the original image size
-        normalized_points = [(x / self.image_size, y / self.image_size) for x, y in self.final_points]
+        # Normalize the points to the original image size, add confidence scores
+        normalized_points = []
+        for i, p in enumerate(self.final_points):
+            normalized_points.append((p[0] / self.image_size, p[1] / self.image_size, self.keypoint_conf[i]))
 
         # Create a formatted string for saving
-        save_string = "0 " + " ".join([str(i) for i in self.bbox_n]) + " " + " ".join([f"{x} {y}" for x, y in normalized_points])
+        save_string = "0 " + " ".join([str(i) for i in self.bbox_n]) + " " + " ".join([f"{x} {y} {c}" for x, y, c in normalized_points])
 
         # Create a 'labels' folder if it doesn't exist
         image_path = os.path.join(self.folder_path, self.image_files[self.current_image_index])
@@ -340,6 +347,7 @@ class KeypointEditor:
         self.current_image_index = (self.current_image_index - 1) % len(self.image_files)
         if self.current_image_index < 0:
             self.current_image_index = len(self.image_files) - 1
+        self.is_initial = True
         self.load_image()
         self.draw_connections(self.connections)
         self.draw_keypoints()
@@ -360,6 +368,17 @@ class KeypointEditor:
         self.draw_keypoints()
         self.message_label.config(text=f" {file_path_d} file deleted")
 
+
+    def toggle_confidence(self):
+        # Change confidence scores of keypoints
+        # Use 0.05 for keypoints which are hidden/outside the image
+        # keypoints with 0.05 confidence will have a black border
+         
+        if self.current_conf == 1:
+            self.current_conf = 0.05
+        else:
+            self.current_conf = float(1)
+
     # @property
     # def image_files(self):
     #     return [f for f in os.listdir(self.folder_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
@@ -376,9 +395,11 @@ def display_parts_colors(model_type):
         color_label = Label(part_colors_window, text="#%02x%02x%02x" % color)
         color_label.grid(row=i, column=1, sticky="e")
 
+
 def main():
     folder_path = "trial2" #Change this to wherever images are
-    model_type = "27" #Model type, can be 17, 22 or 26 for now - Number of keypoints
+    model_type = "27"   #Model type, can be 17, 22 or 26 for now - Number of keypoints
+                        # 27 is 26 model, with an added 27th back keypoint in annotations which has to always be fixed manually
     global model 
 
     if model_type == "17":
