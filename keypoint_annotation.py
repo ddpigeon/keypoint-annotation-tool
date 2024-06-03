@@ -180,6 +180,7 @@ class KeypointEditor:
         # if results and results[0].keypoints is not None:
         if self.is_initial: 
             self.initial_points = results[0].keypoints.xy.tolist()
+            self.keypoint_conf = [float(1)] * self.keypoint_count
 
             self.bbox = results[0].boxes.xyxy.tolist()[0]
             self.bboxn = results[0].boxes.xywhn.tolist()[0]
@@ -248,7 +249,7 @@ class KeypointEditor:
             if distance < 5:
                 self.selected_point = i
                 self.selected_bbox = None
-                break
+                #break
 
         if self.selected_point == None:
             for i in range(0, 2):
