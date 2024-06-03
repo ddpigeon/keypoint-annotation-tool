@@ -4,9 +4,7 @@ import tkinter as tk
 from tkinter import Canvas, Button, Label, Toplevel
 import math
 from ultralytics import YOLO
-import pickle
 
-#model = YOLO(r"weights/best.pt")
 
 colors = [(0,0,0),(255,255,255),(128,128,128),
           (139,69,19),(244,164,96),(0,100,0),
@@ -83,6 +81,28 @@ possible_connections["26"] = [
         (16, 25), (25, 21), (25, 23) # Right foot
 ]
 
+# 27 Keypoint model
+parts["27"] = [
+    "Nose", "Left Eye", "Right Eye", "Left Ear", "Right Ear",
+    "left shoulder", "right shoulder", "left elbow", "right elbow", "left wrist", "right wrist", 
+    "left hip", "right hip", "left knee", "right knee", "left ankle", "right ankle",
+    "Head", "Neck", "Hip",
+    "Left big toe", "Right big toe", "Left small toe", "Right small toe",
+    "Left Heel", "Right Heel",
+    "Middle back"
+]
+
+possible_connections["27"] = [
+        (0, 1), (0, 2), (1, 3), (2, 4), (17, 18), # Face
+        (26, 18), (18, 5), (18, 6), (26, 19), (19, 11), (19, 12),  # Torso
+        (5, 7), (7, 9), # Left arm
+        (6, 8), (8, 10), # Right arm
+        (11, 13), (13, 15), # Left leg
+        (12, 14), (14, 16), # Right leg
+        (15, 24), (24, 20), (24, 22), # Left foot
+        (16, 25), (25, 21), (25, 23) # Right foot
+]
+
 class KeypointEditor:
     def __init__(self, root,folder_path, model_type):
         # initial_points = initial_points[0]
@@ -93,9 +113,16 @@ class KeypointEditor:
         self.image_ac_size = None
         self.is_initial = True  # This is true if initial points predicted by model are not changed, otherwise becomes false
         # self.image_path = image_path
+
+        self.bbox = [] # bounding box coordinates on canvas
+        self.bbox_n = [None] * 4 # Normalized yolo format bbox coords
+        self.selected_bbox = None
+
+
         self.initial_points = []
         self.final_points = []  # Convert to lists
         self.selected_point = None
+        self.keypoint_count = int(model_type)
         self.current_image_index = 0
         self.labels_folder = ""
         self.save_path = ""
@@ -119,6 +146,7 @@ class KeypointEditor:
         self.load_image()
         self.draw_connections(self.connections)
         self.draw_keypoints()
+        self.draw_bbox()
         self.check_file()
 
         self.save_button = Button(root, text="Save", command=self.save_coordinates)
@@ -148,9 +176,23 @@ class KeypointEditor:
         # if results and results[0].keypoints is not None:
         if self.is_initial: 
             self.initial_points = results[0].keypoints.xy.tolist()
+
+            self.bbox = results[0].boxes.xyxy.tolist()[0]
+            self.bboxn = results[0].boxes.xywhn.tolist()[0]
+            self.bbox = [i * self.scale_factor for i in self.bbox]
+
             initial_points = self.initial_points[0]
             self.final_points = [list(point) for point in initial_points]
+            #print(self.final_points)
+            if self.keypoint_count == 27:
+                self.final_points.append([float(self.image_size/2), float(self.image_size/2)])
+                #print(self.final_points)
+
             self.is_initial = False
+
+        self.convert_bbox()
+        print([i // self.scale_factor for i in self.bbox])
+        print(self.bbox_n)
         #self.image = cv2.imread(image_path1)
         self.image = image
         image_size = self.image.shape
@@ -169,6 +211,20 @@ class KeypointEditor:
                                     fill="#%02x%02x%02x" % color, outline="#%02x%02x%02x" % color)
             
 
+    def draw_bbox(self):
+        self.canvas.create_rectangle(self.bbox[0], self.bbox[1], self.bbox[2], self.bbox[3], outline="red", width=3)
+        self.canvas.create_oval(self.bbox[0]-5, self.bbox[1]-5, self.bbox[0]+5, self.bbox[1]+5,fill="red", outline="red")
+        self.canvas.create_oval(self.bbox[2]-5, self.bbox[3]-5, self.bbox[2]+5, self.bbox[3]+5,fill="red", outline="red")
+
+
+    def convert_bbox(self):
+        tmp_bbox = [i // self.scale_factor for i in self.bbox]
+        self.bbox_n[0] = (tmp_bbox[0] + tmp_bbox[2]) / 2
+        self.bbox_n[1] = (tmp_bbox[1] + tmp_bbox[3]) / 2
+        self.bbox_n[2] = tmp_bbox[2] - tmp_bbox[0]
+        self.bbox_n[3] = tmp_bbox[3] - tmp_bbox[1]
+            
+
     def draw_connections(self, connections):
         for connection in connections:
             i, j = connection
@@ -179,26 +235,48 @@ class KeypointEditor:
             self.canvas.create_line(x1_scaled, y1_scaled, x2_scaled, y2_scaled, fill="white")
 
     def select_point(self, event):
+        self.selected_point = None
+
         x, y = event.x // self.scale_factor, event.y // self.scale_factor  # Scale down the mouse click coordinates
         for i, (px, py) in enumerate(self.final_points):
             distance = math.sqrt((px - x)**2 + (py - y)**2)
             if distance < 5:
                 self.selected_point = i
+                self.selected_bbox = None
                 break
+
+        if self.selected_point == None:
+            for i in range(0, 2):
+                px = self.bbox[2 * i] // self.scale_factor
+                py = self.bbox[2 * i + 1] // self.scale_factor
+                distance = math.sqrt((px - x) ** 2 + (py - y) ** 2)
+                if distance < 5:
+                    self.selected_bbox = i
+                    break
 
 
     def move_selected_point(self, event):
         if self.selected_point is not None:
+            self.selected_bbox = None
             x, y = event.x // self.scale_factor, event.y // self.scale_factor  # Scale down the mouse move coordinates
             self.final_points[self.selected_point] = [int(x), int(y)]  # Convert to integers and update as list
             self.redraw_keypoints()
             self.redraw_connections()
+
+        if self.selected_bbox is not None:
+            self.selected_point = None
+            x, y = event.x, event.y
+            self.bbox[2 * self.selected_bbox] = x
+            self.bbox[2 * self.selected_bbox + 1] = y
+            self.redraw_keypoints()
 
 
     def redraw_keypoints(self):
         self.canvas.delete("all")
         self.load_image()
         self.draw_keypoints()
+        self.draw_bbox()
+        self.redraw_connections()
 
     def redraw_connections(self):
         self.canvas.delete("connections")
@@ -213,7 +291,7 @@ class KeypointEditor:
         normalized_points = [(x / self.image_size, y / self.image_size) for x, y in self.final_points]
 
         # Create a formatted string for saving
-        save_string = "0 0.5 0.5 1 1 " + " ".join([f"{x} {y}" for x, y in normalized_points])
+        save_string = "0 " + " ".join([str(i) for i in self.bbox_n]) + " " + " ".join([f"{x} {y}" for x, y in normalized_points])
 
         # Create a 'labels' folder if it doesn't exist
         image_path = os.path.join(self.folder_path, self.image_files[self.current_image_index])
@@ -300,7 +378,7 @@ def display_parts_colors(model_type):
 
 def main():
     folder_path = "trial2" #Change this to wherever images are
-    model_type = "22" #Model type, can be 17, 22 or 26 for now - Number of keypoints
+    model_type = "27" #Model type, can be 17, 22 or 26 for now - Number of keypoints
     global model 
 
     if model_type == "17":
@@ -310,6 +388,9 @@ def main():
         model = YOLO("weights/best.pt")
 
     if model_type == "26":
+        model = YOLO("weights/best26.pt")
+
+    if model_type == "27":
         model = YOLO("weights/best26.pt")
 
 
@@ -323,7 +404,7 @@ def main():
     #     # if results and results[0].keypoints is not None:
     #     initial_points = results[0].keypoints.xy.tolist()
         # else:
-            # print("Error: results is empty or keypoints is not defined
+            # print("Error: results is empty or keypoints is not defined)
     root = tk.Tk()
     root.title("Keypoint Editor")
     editor = KeypointEditor(root, folder_path, model_type)
