@@ -159,7 +159,7 @@ class KeypointEditor:
         self.toggle_conf_button.pack()
         self.next10_button = Button(root, text="10 >>", command=self.next_10)
         self.next10_button.pack(side=tk.RIGHT)
-        self.prev10_button = Button(root, text="<< 10", command=self.next_10)
+        self.prev10_button = Button(root, text="<< 10", command=self.prev_10)
         self.prev10_button.pack(side=tk.LEFT)
         self.next_button = Button(root, text="Next", command=self.next_image)
         self.prev_button = Button(root, text="Previous", command=self.prev_image)
