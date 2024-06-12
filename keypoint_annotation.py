@@ -157,6 +157,10 @@ class KeypointEditor:
         self.save_button.pack()
         self.toggle_conf_button = Button(root, text="Toggle confidence", command=self.toggle_confidence)
         self.toggle_conf_button.pack()
+        self.next10_button = Button(root, text="10 >>", command=self.next_10)
+        self.next10_button.pack(side=tk.RIGHT)
+        self.prev10_button = Button(root, text="<< 10", command=self.next_10)
+        self.prev10_button.pack(side=tk.LEFT)
         self.next_button = Button(root, text="Next", command=self.next_image)
         self.prev_button = Button(root, text="Previous", command=self.prev_image)
         self.delete_button = Button(root, text="Delete", command=self.delete_current_image)
@@ -165,6 +169,7 @@ class KeypointEditor:
 
         self.canvas.bind("<Button-1>", self.select_point)
         self.canvas.bind("<B1-Motion>", self.move_selected_point)
+
     def pack_buttons(self):
         self.next_button.pack(side=tk.RIGHT)
         self.prev_button.pack(side=tk.LEFT)
@@ -328,6 +333,38 @@ class KeypointEditor:
         self.check_file()
         self.message_label.config(text="")
 
+
+    def next_10(self):
+        self.current_image_index = (self.current_image_index + 10) % len(self.image_files)
+        self.is_initial = True
+        self.load_image()
+        self.draw_connections(self.connections)
+        self.draw_keypoints()
+        self.check_file()
+        self.message_label.config(text="")
+        
+
+    def prev_image(self):
+        self.current_image_index = (self.current_image_index - 1) % len(self.image_files)
+        if self.current_image_index < 0:
+            self.current_image_index = len(self.image_files) - 1
+        self.is_initial = True
+        self.load_image()
+        self.draw_connections(self.connections)
+        self.draw_keypoints()
+        self.message_label.config(text="")
+        self.check_file()
+
+
+    def prev_10(self):
+        self.current_image_index = (self.current_image_index - 10) % len(self.image_files)
+        self.is_initial = True
+        self.load_image()
+        self.draw_connections(self.connections)
+        self.draw_keypoints()
+        self.check_file()
+        self.message_label.config(text="")
+
     def check_file(self):
         image_path = os.path.join(self.folder_path, self.image_files[self.current_image_index])
 
@@ -343,17 +380,6 @@ class KeypointEditor:
         else :
             self.messagesave_label.config(text = f"coordinates saved {jpg_file}" )
 
-
-    def prev_image(self):
-        self.current_image_index = (self.current_image_index - 1) % len(self.image_files)
-        if self.current_image_index < 0:
-            self.current_image_index = len(self.image_files) - 1
-        self.is_initial = True
-        self.load_image()
-        self.draw_connections(self.connections)
-        self.draw_keypoints()
-        self.message_label.config(text="")
-        self.check_file()
 
     def delete_current_image(self):
         file_path_d = os.path.join(self.folder_path, self.image_files[self.current_image_index])
