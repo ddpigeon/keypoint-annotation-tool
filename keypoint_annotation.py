@@ -304,7 +304,7 @@ class KeypointEditor:
             normalized_points.append((p[0] / self.image_size, p[1] / self.image_size, self.keypoint_conf[i]))
 
         # Create a formatted string for saving
-        save_string = "0 " + " ".join([str(i) for i in self.bbox_n]) + " " + " ".join([f"{x} {y} {c}" for x, y, c in normalized_points])
+        save_string = "0 " + " ".join([str(i / self.image_size) for i in self.bbox_n]) + " " + " ".join([f"{x} {y} {c}" for x, y, c in normalized_points])
 
         # Create a 'labels' folder if it doesn't exist
         image_path = os.path.join(self.folder_path, self.image_files[self.current_image_index])
