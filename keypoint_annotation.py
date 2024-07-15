@@ -180,10 +180,10 @@ class KeypointEditor:
         self.label.config(text="File Name: {}".format(os.path.basename(image_path1)))
         image = cv2.imread(image_path1)
         image = cv2.resize(image, (256, 256), interpolation=cv2.INTER_AREA)
-        results = model(image)
         
         # if results and results[0].keypoints is not None:
         if self.is_initial: 
+            results = model(image)
             self.initial_points = results[0].keypoints.xy.tolist()
             self.keypoint_conf = [float(1)] * self.keypoint_count
 
@@ -199,8 +199,8 @@ class KeypointEditor:
             self.is_initial = False
 
         self.convert_bbox()
-        print([i // self.scale_factor for i in self.bbox])
-        print(self.bbox_n)
+        #print([i // self.scale_factor for i in self.bbox])
+        #print(self.bbox_n)
         #self.image = cv2.imread(image_path1)
         self.image = image
         image_size = self.image.shape
@@ -424,7 +424,7 @@ def display_parts_colors(model_type):
 
 
 def main():
-    folder_path = "trial2" #Change this to wherever images are
+    folder_path = "/run/media/ddpigeon/My Passport/backup prabhanjan/train2017" #Change this to wherever images are
     model_type = "27"   #Model type, can be 17, 22 or 26 for now - Number of keypoints
                         # 27 is 26 model, with an added 27th back keypoint in annotations which has to always be fixed manually
     global model 
