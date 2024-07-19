@@ -362,16 +362,30 @@ class KeypointEditor:
         # print("G")
         if self.selected_point is not None:
             self.selected_bbox = None
-            x, y = event.x / self.scale_factor, event.y / self.scale_factor  # Scale down the mouse move coordinates
+            x, y = self.convert_coordiantes(event.x / self.scale_factor),self.convert_coordiantes( event.y / self.scale_factor,text="y")  # Scale down the mouse move coordinates
             self.final_points[self.selected_point] = [x, y]  # Convert to integers and update as list
             self.keypoint_conf[self.selected_point] = self.current_conf
             self.redraw_keypoints()
         if self.selected_bbox is not None:
             self.selected_point = None
-            x, y = event.x, event.y
+            x, y = self.convert_coordiantes(event.x,True,text="box -x"), self.convert_coordiantes(event.y,True,text="box - y")
             self.bbox[2 * self.selected_bbox] = x
             self.bbox[2 * self.selected_bbox + 1] = y                                           
             self.redraw_keypoints()
+
+    def convert_coordiantes(self, i, isBox=False,text = "x"):
+
+        # print(text," : ", i)
+        # print("max: ", self.image_size*self.scale_factor)
+        if not isBox:
+            i = max(0, i)
+            i = min(i, self.image_size)
+        else:
+            i  =max(0,i)
+            i = min(self.image_size*self.scale_factor,i)
+        # print("after conversion: ", i)
+        return i
+
 
     def redraw_keypoints(self):
         # print("H")
